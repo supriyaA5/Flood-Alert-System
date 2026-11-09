@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Alert History — FloodWatch Community{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+    <h1 class="page-hero-title">📋 Alert History</h1>
+    <p class="page-hero-subtitle">All community alerts sent through FloodWatch.</p>
+</div>
+
+<section class="card" aria-label="Alert history">
+    <div class="card-header">
+        <h2 class="card-title">Sent Alerts</h2>
+        <a href="{{ url_for('compose_alert') }}" class="btn btn-sm btn-primary">+ New Alert</a>
+    </div>
+
+    {% if alerts %}
+    <div class="table-wrap">
+        <table class="reports-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Title</th><th>Severity</th><th>Sent By</th>
+                    <th>Recipients</th><th>Affected Area</th><th>Sent At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in alerts %}
+                <tr>
+                    <td>{{ a.id }}</td>
+                    <td>
+                        <strong>{{ a.title }}</strong>
+                        {% if a.body %}<br><small class="report-desc">{{ a.body[:80] }}{% if a.body|length > 80 %}…{% endif %}</small>{% endif %}
+                    </td>
+                    <td><span class="sev-badge sev-{{ a.severity | lower }}">{{ a.severity }}</span></td>
+                    <td>{{ a.sender_name or a.sender_username }}</td>
+                    <td>
+                        <span class="badge badge-community">{{ a.recipient_group }}</span>
+                        <br><small>{{ a.recipient_count }} user(s)</small>
+                    </td>
+                    <td>{{ a.affected_area or '—' }}</td>
+                    <td class="report-date">{{ a.sent_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📢</div>
+        <p class="empty-title">No alerts sent yet</p>
+        <p class="empty-subtitle"><a href="{{ url_for('compose_alert') }}">Send the first alert →</a></p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

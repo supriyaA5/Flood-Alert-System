@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Register — FloodWatch Community{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+    <div class="auth-card auth-card--wide">
+        <div class="auth-header">
+            <span class="auth-icon">🌊</span>
+            <h1 class="auth-title">Create Account</h1>
+            <p class="auth-subtitle">Join FloodWatch Community to report floods and receive alerts</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('register') }}" class="auth-form" id="registerForm">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username <span class="required">*</span></label>
+                    <input id="username" name="username" type="text" class="form-input"
+                        placeholder="e.g. ramesh_k" value="{{ form.get('username','') }}"
+                        autocomplete="username" required minlength="3" maxlength="30"
+                        pattern="[a-z0-9_]+">
+                    <span class="field-hint">Letters, numbers, underscores only (min 3 chars)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="full_name" class="form-label">Full Name</label>
+                    <input id="full_name" name="full_name" type="text" class="form-input"
+                        placeholder="e.g. Ramesh Kumar" value="{{ form.get('full_name','') }}"
+                        autocomplete="name">
+                </div>
+
+                <div class="form-group form-group--full">
+                    <label for="email" class="form-label">Email Address <span class="required">*</span></label>
+                    <input id="email" name="email" type="email" class="form-input"
+                        placeholder="your@email.com" value="{{ form.get('email','') }}"
+                        autocomplete="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone" class="form-label">Phone Number <span class="optional">(optional)</span></label>
+                    <input id="phone" name="phone" type="tel" class="form-input"
+                        placeholder="+91 9876543210" value="{{ form.get('phone','') }}"
+                        autocomplete="tel">
+                    <span class="field-hint">Used for SMS alerts (with your consent)</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="location_area" class="form-label">Your Area/Village <span class="optional">(optional)</span></label>
+                    <input id="location_area" name="location_area" type="text" class="form-input"
+                        placeholder="e.g. Gudlavalleru" value="{{ form.get('location_area','') }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password <span class="required">*</span></label>
+                    <div class="password-wrap">
+                        <input id="password" name="password" type="password" class="form-input"
+                            placeholder="Minimum 8 characters" autocomplete="new-password" required minlength="8">
+                        <button type="button" class="pw-toggle" onclick="togglePw('password')" aria-label="Toggle password">👁</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password" class="form-label">Confirm Password <span class="required">*</span></label>
+                    <div class="password-wrap">
+                        <input id="confirm_password" name="confirm_password" type="password" class="form-input"
+                            placeholder="Repeat your password" autocomplete="new-password" required minlength="8">
+                        <button type="button" class="pw-toggle" onclick="togglePw('confirm_password')" aria-label="Toggle password">👁</button>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Already have an account? <a href="{{ url_for('login') }}">Sign in here</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePw(id) {
+    var f = document.getElementById(id);
+    f.type = f.type === 'password' ? 'text' : 'password';
+}
+</script>
+{% endblock %}
