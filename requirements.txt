@@ -1,2 +1,5 @@
-Flask==3.1.8
-gunicorn==26.2.0
+Flask
+Flask-Cors
+gunicorn
+Flask-WTF
+python-dotenv
