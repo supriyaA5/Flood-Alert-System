@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Send Community Alert — FloodWatch Community{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+    <h1 class="page-hero-title">📢 Send Community Alert</h1>
+    <p class="page-hero-subtitle">Broadcast a flood alert to registered community members. Only administrators and response team can send alerts.</p>
+</div>
+
+<div class="info-banner info-banner--warning" role="note">
+    <span class="info-banner-icon">⚠️</span>
+    <div>
+        <strong>Responsible Use</strong><br>
+        Only send official-sounding alerts if you have verified the information. Clearly label alerts as community observations, not official government warnings.
+        {% if demo_mode %} <strong>Demo Mode:</strong> External SMS/Email will NOT be sent.{% endif %}
+    </div>
+</div>
+
+<section class="card" aria-label="Compose alert form">
+    <div class="card-header">
+        <h2 class="card-title">Alert Composer</h2>
+        <a href="{{ url_for('alert_history') }}" class="btn btn-sm btn-outline">Alert History</a>
+    </div>
+
+    <div id="alert-form-result" class="form-alert form-alert--hidden" role="alert" aria-live="polite"></div>
+
+    <form id="alertForm">
+        <div class="form-grid">
+            <div class="form-group form-group--full">
+                <label for="title" class="form-label">Alert Title <span class="required">*</span></label>
+                <input id="title" name="title" type="text" class="form-input"
+                    placeholder="e.g. Rising water levels near Gudlavalleru main road" required maxlength="200">
+            </div>
+
+            <div class="form-group">
+                <label for="alert_severity" class="form-label">Severity <span class="required">*</span></label>
+                <select id="alert_severity" name="alert_severity" class="form-input" required>
+                    <option value="Information">ℹ️ Information</option>
+                    <option value="Advisory">📌 Advisory</option>
+                    <option value="Warning">⚠️ Warning</option>
+                    <option value="Emergency">🚨 Emergency</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="recipient_group" class="form-label">Recipients <span class="required">*</span></label>
+                <select id="recipient_group" name="recipient_group" class="form-input" required>
+                    <option value="all">All Registered Users</option>
+                    <option value="residents">Residents Only</option>
+                    <option value="response_team">Response Team & Admins</option>
+                    {% for u in users_list %}
+                    <option value="{{ u.id }}">Individual: {{ u.full_name or u.username }} ({{ u.role }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="affected_area" class="form-label">Affected Area <span class="optional">(optional)</span></label>
+                <input id="affected_area" name="affected_area" type="text" class="form-input"
+                    placeholder="e.g. Gudlavalleru, West Colony">
+            </div>
+
+            <div class="form-group">
+                <label for="report_id" class="form-label">Related Report <span class="optional">(optional)</span></label>
+                <select id="report_id" name="report_id" class="form-input">
+                    <option value="">None</option>
+                    {% for r in reports_list %}
+                    <option value="{{ r.id }}">#{{ r.id }} — {{ r.location }} ({{ r.severity }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group form-group--full">
+                <label for="body" class="form-label">Alert Message <span class="required">*</span></label>
+                <textarea id="body" name="body" class="form-input form-textarea" rows="5"
+                    placeholder="Describe the situation, safety advice, or action residents should take…" required maxlength="2000"></textarea>
+                <span class="field-hint char-counter"><span id="bodyCount">0</span>/2000 characters</span>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-alert-send" id="sendAlertBtn">
+                <span class="btn-text">📢 Send Alert</span>
+                <span class="btn-spinner" style="display:none">⏳</span>
+            </button>
+            <a href="{{ url_for('home') }}" class="btn btn-outline">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var bodyField = document.getElementById('body');
+var bodyCount = document.getElementById('bodyCount');
+if (bodyField) {
+    bodyField.addEventListener('input', function() { bodyCount.textContent = bodyField.value.length; });
+}
+
+document.getElementById('alertForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var btn = document.getElementById('sendAlertBtn');
+    var result = document.getElementById('alert-form-result');
+    btn.disabled = true;
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-spinner').style.display = 'inline';
+    result.className = 'form-alert form-alert--hidden';
+
+    try {
+        var fd = new FormData(this);
+        var resp = await fetch('/alerts/compose', {
+            method: 'POST', body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        var data = await resp.json();
+        if (data.success) {
+            result.textContent = '✅ ' + data.message;
+            result.className = 'form-alert form-alert--success';
+            this.reset();
+            bodyCount.textContent = '0';
+        } else {
+            var msgs = data.errors || [data.error || 'Submission failed.'];
+            result.innerHTML = '<strong>Errors:</strong><ul>' + msgs.map(function(m){return '<li>'+m+'</li>';}).join('') + '</ul>';
+            result.className = 'form-alert form-alert--error';
+        }
+    } catch(err) {
+        result.textContent = '❌ Network error. Please try again.';
+        result.className = 'form-alert form-alert--error';
+    } finally {
+        btn.disabled = false;
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-spinner').style.display = 'none';
+        result.scrollIntoView({ behavior: 'smooth' });
+    }
+});
+</script>
+{% endblock %}

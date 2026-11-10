@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — FloodWatch Community{% endblock %}
+{% block meta_description %}FloodWatch Community Dashboard — view community flood statistics, risk assessment, and trend
+charts. Student demonstration project.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+
+<!-- ===== STAT CARDS ===== -->
+<section class="stats-grid" aria-label="Statistics overview">
+    <div class="stat-card stat-total">
+        <div class="stat-icon" aria-hidden="true">📋</div>
+        <div class="stat-body">
+            <span class="stat-number" id="stat-total">{{ stats.total }}</span>
+            <span class="stat-label">Total Reports</span>
+        </div>
+    </div>
+    <div class="stat-card stat-high">
+        <div class="stat-icon" aria-hidden="true">🔴</div>
+        <div class="stat-body">
+            <span class="stat-number" id="stat-high">{{ stats.high }}</span>
+            <span class="stat-label">High Severity</span>
+        </div>
+    </div>
+    <div class="stat-card stat-unresolved">
+        <div class="stat-icon" aria-hidden="true">⏳</div>
+        <div class="stat-body">
+            <span class="stat-number" id="stat-unresolved">{{ stats.unresolved }}</span>
+            <span class="stat-label">Unresolved</span>
+        </div>
+    </div>
+    <div class="stat-card stat-recent">
+        <div class="stat-icon" aria-hidden="true">🕐</div>
+        <div class="stat-body">
+            <span class="stat-number" id="stat-recent">{{ stats.recent }}</span>
+            <span class="stat-label">Last 48 Hours</span>
+        </div>
+    </div>
+</section>
+
+<!-- ===== RISK ASSESSMENT ===== -->
+<section class="card risk-card" aria-label="Flood risk status">
+    <div class="card-header">
+        <h2 class="card-title">Community Flood Risk Status</h2>
+        <span class="badge badge-demo">Demo Assessment</span>
+    </div>
+
+    <div class="risk-display risk-{{ risk.level | lower }}" id="risk-level-display">
+        <div class="risk-icon" aria-hidden="true">
+            {% if risk.level == 'Danger' %}🚨
+            {% elif risk.level == 'Warning' %}⚠️
+            {% elif risk.level == 'Caution' %}🟡
+            {% else %}✅{% endif %}
+        </div>
+        <div class="risk-text">
+            <span class="risk-label">{{ risk.level }}</span>
+            <span class="risk-subtitle">
+                Based on {{ risk.active_count }} active report(s) — {{ risk.recent_count }} in the last 48 hours
+            </span>
+        </div>
+    </div>
+
+    <div class="risk-reasons" aria-label="Why this risk level was assigned">
+        <h3 class="reasons-title">Why this level?</h3>
+        <ul class="reasons-list">
+            {% for reason in risk.reasons %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+        </ul>
+        {% if risk.cluster_warning %}
+        <div class="cluster-alert" role="alert">
+            🗺️ <strong>Cluster Detected:</strong> Multiple high-severity reports are geographically close. This area
+            may need priority attention.
+        </div>
+        {% endif %}
+    </div>
+
+    <p class="risk-disclaimer">
+        ⚠️ This assessment is generated automatically from community-submitted data. It is <strong>not</strong>
+        an official flood forecast. Always follow instructions from your local emergency management authority.
+    </p>
+</section>
+
+<!-- ===== CHARTS ===== -->
+<div class="charts-row">
+    <div class="card chart-card">
+        <h2 class="card-title">Reports by Severity</h2>
+        <div class="chart-container">
+            <canvas id="severityChart" aria-label="Pie chart showing reports by severity" role="img"></canvas>
+        </div>
+    </div>
+    <div class="card chart-card">
+        <h2 class="card-title">Reporting Trend (7 Days)</h2>
+        <div class="chart-container">
+            <canvas id="trendChart" aria-label="Bar chart showing reports submitted per day over the last 7 days"
+                role="img"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- ===== QUICK LINKS ===== -->
+<div class="dash-quick-links">
+    <a href="{{ url_for('report_page') }}" class="quick-link-card quick-link-report">
+        <span class="ql-icon">📝</span>
+        <span class="ql-label">Submit a Report</span>
+        <span class="ql-sub">Tell the community what you've seen</span>
+    </a>
+    <a href="{{ url_for('live_map') }}" class="quick-link-card quick-link-map">
+        <span class="ql-icon">🗺️</span>
+        <span class="ql-label">Live Flood Map</span>
+        <span class="ql-sub">See all reports on a map</span>
+    </a>
+    <a href="{{ url_for('all_reports') }}" class="quick-link-card quick-link-all">
+        <span class="ql-icon">📊</span>
+        <span class="ql-label">All Reports</span>
+        <span class="ql-sub">Browse and filter every submission</span>
+    </a>
+    <a href="{{ url_for('community_response') }}" class="quick-link-card quick-link-community">
+        <span class="ql-icon">🤝</span>
+        <span class="ql-label">Community Response</span>
+        <span class="ql-sub">Reports needing attention</span>
+    </a>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    async function loadCharts() {
+        try {
+            var resp = await fetch('/api/stats');
+            var data = await resp.json();
+            var stats = data.stats;
+
+            var sevCtx = document.getElementById('severityChart').getContext('2d');
+            new Chart(sevCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [stats.high, stats.medium, stats.low],
+                        backgroundColor: ['#e74c3c', '#f39c12', '#27ae60'],
+                        borderColor: ['#c0392b', '#d35400', '#1a7a4a'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { family: 'Inter' } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) { return ' ' + ctx.label + ': ' + ctx.parsed + ' report(s)'; }
+                            }
+                        }
+                    }
+                }
+            });
+
+            var trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.daily_trend.labels,
+                    datasets: [{
+                        label: 'Reports submitted',
+                        data: data.daily_trend.data,
+                        backgroundColor: 'rgba(8, 126, 139, 0.75)',
+                        borderColor: '#087e8b',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: 'Inter' } }, grid: { color: '#e8f0f7' } },
+                        x: { ticks: { font: { family: 'Inter' } }, grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        } catch (err) {
+            console.warn('Could not load chart data:', err);
+        }
+    }
+    loadCharts();
+</script>
+{% endblock %}

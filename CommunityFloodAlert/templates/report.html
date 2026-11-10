@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Report a Flood — FloodWatch Community{% endblock %}
+{% block meta_description %}Submit a community flood report to FloodWatch. Include location, problem type, severity, and
+optional GPS coordinates.{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+
+<div class="page-hero">
+    <h1 class="page-hero-title">📝 Report a Flood</h1>
+    <p class="page-hero-subtitle">
+        Seen something in your area? Submit a report to help your community stay informed.
+        All fields marked <span style="color:#e74c3c">*</span> are required.
+    </p>
+</div>
+
+<div class="info-banner info-banner--info" role="note">
+    <span class="info-banner-icon" aria-hidden="true">ℹ️</span>
+    <div>
+        <strong>How to use this form</strong><br>
+        Fill in the location name, select the type of problem, and choose a severity level.
+        You may optionally click the map below to add GPS coordinates — this helps place your report on the Live Flood Map.
+        Reports are community-submitted and <strong>not verified</strong> by any authority.
+    </div>
+</div>
+
+<!-- Map for coordinate picking -->
+<section class="card" aria-label="Click map to select report location">
+    <div class="card-header">
+        <h2 class="card-title">📍 Pick Location on Map <span class="optional">(optional)</span></h2>
+        <button class="btn btn-sm btn-outline" id="clearCoordsBtn" type="button">Clear Coordinates</button>
+    </div>
+    <p class="map-hint">Click anywhere on the map to auto-fill the latitude and longitude fields below.</p>
+    <div id="pick-map" aria-label="Click to select a location for your flood report"></div>
+    <p class="map-note">📌 Coordinates are optional. You can still submit a report with just the location name.</p>
+</section>
+
+<!-- Report form -->
+<section class="card" id="report-form-section" aria-label="Submit a flood report">
+    <div class="card-header">
+        <h2 class="card-title">📝 Submit a Flood Report</h2>
+        <span class="badge badge-community">Community Submission</span>
+    </div>
+
+    <div id="form-alert" class="form-alert form-alert--hidden" role="alert" aria-live="polite"></div>
+
+    <form id="reportForm" action="{{ url_for('submit_report') }}" method="POST" novalidate enctype="multipart/form-data">
+        <div class="form-grid">
+            <div class="form-group form-group--full">
+                <label for="location" class="form-label">Location / Village / Area <span class="required">*</span></label>
+                <input id="location" name="location" type="text" placeholder="e.g. Gudlavalleru, Andhra Pradesh"
+                    class="form-input" required minlength="3" maxlength="150" autocomplete="off">
+                <span class="field-hint">Name of the affected location (at least 3 characters)</span>
+            </div>
+
+            <div class="form-group">
+                <label for="reporter_name" class="form-label">Your Name <span class="optional">(optional)</span></label>
+                <input id="reporter_name" name="reporter_name" type="text" placeholder="e.g. Ramesh Kumar"
+                    class="form-input" maxlength="100">
+            </div>
+
+            <div class="form-group">
+                <label for="contact" class="form-label">Contact (Phone/Email) <span class="optional">(optional)</span></label>
+                <input id="contact" name="contact" type="text" placeholder="e.g. +91 9876543210"
+                    class="form-input" maxlength="100">
+                <span class="field-hint">In case responders need to follow up with you</span>
+            </div>
+
+            <div class="form-group">
+                <label for="issue" class="form-label">Problem Observed <span class="required">*</span></label>
+                <select id="issue" name="issue" class="form-input" required>
+                    <option value="">Select a problem</option>
+                    <option value="Waterlogging">Waterlogging</option>
+                    <option value="Rising water">Rising water level</option>
+                    <option value="Flooded road">Flooded road</option>
+                    <option value="Drain overflow">Drain overflow / Drainage blockage</option>
+                    <option value="Structural damage">Structural damage</option>
+                    <option value="Landslide risk">Landslide risk</option>
+                    <option value="Contaminated water">Contaminated water</option>
+                    <option value="Electrical hazard">Electrical hazard</option>
+                    <option value="Evacuation needed">Evacuation needed</option>
+                    <option value="Other">Other (describe below)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="severity" class="form-label">Severity Level <span class="required">*</span></label>
+                <select id="severity" name="severity" class="form-input" required>
+                    <option value="">Select severity</option>
+                    <option value="Low">🟢 Low — minor inconvenience</option>
+                    <option value="Medium">🟡 Medium — significant problem</option>
+                    <option value="High">🔴 High — dangerous / life risk</option>
+                    <option value="Critical">🚨 Critical — immediate emergency</option>
+                </select>
+            </div>
+
+            <div class="form-group form-group--full">
+                <label for="description" class="form-label">Additional Details <span class="optional">(optional)</span></label>
+                <textarea id="description" name="description" class="form-input form-textarea"
+                    placeholder="Describe what you observed, e.g. depth of water, number of houses affected…"
+                    maxlength="1000" rows="3"></textarea>
+                <span class="field-hint char-counter"><span id="charCount">0</span>/1000 characters</span>
+            </div>
+
+            <div class="form-group form-group--full">
+                <label for="photo" class="form-label">Photo <span class="optional">(optional)</span></label>
+                <input id="photo" name="photo" type="file" class="form-input"
+                    accept=".jpg,.jpeg,.png,.gif,.webp">
+                <span class="field-hint">JPG, PNG, GIF or WEBP — max 5 MB</span>
+            </div>
+
+            <div class="form-group">
+                <label for="latitude" class="form-label">Latitude</label>
+                <input id="latitude" name="latitude" type="number" step="any" min="-90" max="90"
+                    placeholder="Click map to fill" class="form-input form-input--coord" readonly>
+            </div>
+
+            <div class="form-group">
+                <label for="longitude" class="form-label">Longitude</label>
+                <input id="longitude" name="longitude" type="number" step="any" min="-180" max="180"
+                    placeholder="Click map to fill" class="form-input form-input--coord" readonly>
+            </div>
+        </div>
+
+        <div class="coord-note">
+            <span>📌</span>
+            <span>Click the map above to set coordinates. You can also submit without them.</span>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span class="btn-text">Submit Report</span>
+                <span class="btn-spinner" aria-hidden="true" style="display:none">⏳</span>
+            </button>
+            <a href="{{ url_for('all_reports') }}" class="btn btn-outline">View All Reports</a>
+        </div>
+    </form>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Character counter
+    var descField = document.getElementById('description');
+    var charCount = document.getElementById('charCount');
+    if (descField && charCount) {
+        descField.addEventListener('input', function () {
+            charCount.textContent = descField.value.length;
+        });
+    }
+
+    // Map for picking coordinates
+    var DEFAULT_CENTER = [16.435, 80.992];
+    var pickMap = L.map('pick-map').setView(DEFAULT_CENTER, 10);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(pickMap);
+
+    var selectionMarker = null;
+    pickMap.on('click', function (e) {
+        var lat = e.latlng.lat.toFixed(6);
+        var lng = e.latlng.lng.toFixed(6);
+        document.getElementById('latitude').value = lat;
+        document.getElementById('longitude').value = lng;
+
+        if (selectionMarker) pickMap.removeLayer(selectionMarker);
+        selectionMarker = L.marker([lat, lng], { title: 'Selected report location' })
+            .addTo(pickMap)
+            .bindPopup('📍 Report location selected<br>Lat: ' + lat + '<br>Lng: ' + lng)
+            .openPopup();
+
+        document.getElementById('report-form-section').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    document.getElementById('clearCoordsBtn').addEventListener('click', function () {
+        document.getElementById('latitude').value = '';
+        document.getElementById('longitude').value = '';
+        if (selectionMarker) { pickMap.removeLayer(selectionMarker); selectionMarker = null; }
+    });
+
+    // AJAX form submission
+    var reportForm = document.getElementById('reportForm');
+    var formAlert  = document.getElementById('form-alert');
+    var submitBtn  = document.getElementById('submitBtn');
+
+    reportForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        formAlert.className = 'form-alert form-alert--hidden';
+
+        var location = document.getElementById('location').value.trim();
+        var issue    = document.getElementById('issue').value;
+        var severity = document.getElementById('severity').value;
+        var errors   = [];
+
+        if (location.length < 3) errors.push('Location must be at least 3 characters.');
+        if (!issue)    errors.push('Please select a problem type.');
+        if (!severity) errors.push('Please select a severity level.');
+
+        if (errors.length > 0) {
+            formAlert.innerHTML = '<strong>Please fix the following:</strong><ul>' +
+                errors.map(function (e) { return '<li>' + e + '</li>'; }).join('') + '</ul>';
+            formAlert.className = 'form-alert form-alert--error';
+            formAlert.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-spinner').style.display = 'inline';
+
+        try {
+            var data = new FormData(reportForm);
+            var resp = await fetch('/report', {
+                method: 'POST', body: data,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            var result = await resp.json();
+
+            if (result.success) {
+                formAlert.textContent = '✅ ' + result.message + ' Redirecting to All Reports…';
+                formAlert.className = 'form-alert form-alert--success';
+                reportForm.reset();
+                if (charCount) charCount.textContent = '0';
+                if (selectionMarker) { pickMap.removeLayer(selectionMarker); selectionMarker = null; }
+                setTimeout(function () { window.location.href = '/reports'; }, 1800);
+            } else {
+                var msgs = result.errors || [result.error || 'Submission failed.'];
+                formAlert.innerHTML = '<strong>Errors:</strong><ul>' +
+                    msgs.map(function (m) { return '<li>' + m + '</li>'; }).join('') + '</ul>';
+                formAlert.className = 'form-alert form-alert--error';
+            }
+        } catch (err) {
+            formAlert.textContent = '❌ Network error. Please check your connection and try again.';
+            formAlert.className = 'form-alert form-alert--error';
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.querySelector('.btn-text').style.display = 'inline';
+            submitBtn.querySelector('.btn-spinner').style.display = 'none';
+            formAlert.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+</script>
+{% endblock %}

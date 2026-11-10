@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Messages & Alerts — FloodWatch Community{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+    <h1 class="page-hero-title">💬 Messages & Alerts</h1>
+    <p class="page-hero-subtitle">Your inbox, sent messages, and community flood alerts.</p>
+</div>
+
+<!-- Tabs -->
+<div class="msg-tabs" role="tablist">
+    <button class="msg-tab active" id="tab-inbox" role="tab" aria-selected="true" aria-controls="panel-inbox" onclick="switchTab('inbox')">
+        📥 Inbox
+        {% if inbox | selectattr('is_read', 'equalto', 0) | list | length > 0 %}
+        <span class="nav-badge">{{ inbox | selectattr('is_read', 'equalto', 0) | list | length }}</span>
+        {% endif %}
+    </button>
+    <button class="msg-tab" id="tab-alerts-list" role="tab" aria-selected="false" aria-controls="panel-alerts-list" onclick="switchTab('alerts-list')">
+        📢 Community Alerts
+        {% if alerts_list | selectattr('is_read', 'equalto', 0) | list | length > 0 %}
+        <span class="nav-badge">{{ alerts_list | selectattr('is_read', 'equalto', 0) | list | length }}</span>
+        {% endif %}
+    </button>
+    <button class="msg-tab" id="tab-sent" role="tab" aria-selected="false" aria-controls="panel-sent" onclick="switchTab('sent')">
+        📤 Sent
+    </button>
+</div>
+
+<!-- Inbox Panel -->
+<div id="panel-inbox" class="msg-panel active" role="tabpanel" aria-labelledby="tab-inbox">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📥 Inbox</h2>
+            <a href="{{ url_for('send_message') }}" class="btn btn-sm btn-primary">+ Compose</a>
+        </div>
+        {% if inbox %}
+        <div class="msg-list">
+            {% for msg in inbox %}
+            <a href="{{ url_for('view_message', mid=msg.id) }}" class="msg-item {% if not msg.is_read %}msg-item--unread{% endif %}">
+                <div class="msg-meta">
+                    <span class="msg-sender">{{ msg.sender_name or msg.sender_username }}</span>
+                    <span class="msg-date">{{ msg.sent_at }}</span>
+                </div>
+                <div class="msg-subject">{{ msg.subject }}</div>
+                <div class="msg-preview">{{ msg.body[:100] }}{% if msg.body|length > 100 %}…{% endif %}</div>
+                {% if not msg.is_read %}<span class="msg-unread-dot" aria-label="Unread">●</span>{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p class="empty-title">Your inbox is empty</p>
+            <p class="empty-subtitle"><a href="{{ url_for('send_message') }}">Send a message →</a></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Community Alerts Panel -->
+<div id="panel-alerts-list" class="msg-panel" role="tabpanel" aria-labelledby="tab-alerts-list" hidden>
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📢 Community Alerts</h2>
+            {% if current_user and current_user.role in ('admin', 'response_team') %}
+            <a href="{{ url_for('compose_alert') }}" class="btn btn-sm btn-primary">+ Send Alert</a>
+            {% endif %}
+        </div>
+        {% if alerts_list %}
+        <div class="msg-list">
+            {% for a in alerts_list %}
+            <div class="msg-item alert-item alert-item--{{ a.severity | lower }} {% if not a.is_read %}msg-item--unread{% endif %}"
+                 data-alert-id="{{ a.id }}" onclick="markAlertRead({{ a.id }}, this)">
+                <div class="msg-meta">
+                    <span class="msg-sender">
+                        <span class="alert-sev-badge sev-{{ a.severity | lower }}">{{ a.severity }}</span>
+                        {{ a.sender_name or a.sender_username }}
+                    </span>
+                    <span class="msg-date">{{ a.sent_at }}</span>
+                </div>
+                <div class="msg-subject">{{ a.title }}</div>
+                <div class="msg-preview">{{ a.body[:150] }}{% if a.body|length > 150 %}…{% endif %}</div>
+                {% if a.affected_area %}<div class="msg-area">📍 {{ a.affected_area }}</div>{% endif %}
+                {% if not a.is_read %}<span class="msg-unread-dot">●</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📢</div>
+            <p class="empty-title">No community alerts yet</p>
+            <p class="empty-subtitle">Alerts sent by administrators and response team members will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Sent Panel -->
+<div id="panel-sent" class="msg-panel" role="tabpanel" aria-labelledby="tab-sent" hidden>
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📤 Sent Messages</h2>
+            <a href="{{ url_for('send_message') }}" class="btn btn-sm btn-primary">+ Compose</a>
+        </div>
+        {% if sent %}
+        <div class="msg-list">
+            {% for msg in sent %}
+            <a href="{{ url_for('view_message', mid=msg.id) }}" class="msg-item">
+                <div class="msg-meta">
+                    <span class="msg-sender">To: {{ msg.rec_name or msg.rec_username }}</span>
+                    <span class="msg-date">{{ msg.sent_at }}</span>
+                </div>
+                <div class="msg-subject">{{ msg.subject }}</div>
+                <div class="msg-preview">{{ msg.body[:100] }}{% if msg.body|length > 100 %}…{% endif %}</div>
+                {% if msg.is_read %}<span class="msg-read-tick">✓ Read</span>{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📤</div>
+            <p class="empty-title">No sent messages yet</p>
+            <p class="empty-subtitle"><a href="{{ url_for('send_message') }}">Send your first message →</a></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchTab(name) {
+    document.querySelectorAll('.msg-tab').forEach(function(t) {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+    });
+    document.querySelectorAll('.msg-panel').forEach(function(p) {
+        p.classList.remove('active');
+        p.hidden = true;
+    });
+    var tab = document.getElementById('tab-' + name);
+    var panel = document.getElementById('panel-' + name);
+    if (tab) { tab.classList.add('active'); tab.setAttribute('aria-selected', 'true'); }
+    if (panel) { panel.classList.add('active'); panel.hidden = false; }
+}
+
+async function markAlertRead(aid, el) {
+    if (el.classList.contains('msg-item--unread')) {
+        el.classList.remove('msg-item--unread');
+        el.querySelector('.msg-unread-dot') && el.querySelector('.msg-unread-dot').remove();
+        try {
+            await fetch('/alerts/' + aid + '/read', { method: 'POST' });
+        } catch(e) {}
+    }
+}
+
+// Check URL hash for tab
+var hash = window.location.hash;
+if (hash === '#alerts') switchTab('alerts-list');
+if (hash === '#sent') switchTab('sent');
+</script>
+{% endblock %}

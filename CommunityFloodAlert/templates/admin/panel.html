@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Admin Panel — FloodWatch Community{% endblock %}
+
+{% block content %}
+<div class="page-hero">
+    <h1 class="page-hero-title">⚙️ Admin Panel</h1>
+    <p class="page-hero-subtitle">Manage users, view system statistics, and monitor notifications.</p>
+</div>
+
+<!-- Stats overview -->
+<section class="stats-grid" aria-label="System statistics">
+    <div class="stat-card stat-total">
+        <div class="stat-icon">📋</div>
+        <div class="stat-body">
+            <span class="stat-number">{{ stats.total }}</span>
+            <span class="stat-label">Total Reports</span>
+        </div>
+    </div>
+    <div class="stat-card stat-high">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-body">
+            <span class="stat-number">{{ stats.high + stats.critical }}</span>
+            <span class="stat-label">High/Critical</span>
+        </div>
+    </div>
+    <div class="stat-card stat-unresolved">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-body">
+            <span class="stat-number">{{ stats.unresolved }}</span>
+            <span class="stat-label">Unresolved</span>
+        </div>
+    </div>
+    <div class="stat-card stat-recent">
+        <div class="stat-icon">👥</div>
+        <div class="stat-body">
+            <span class="stat-number">{{ users | length }}</span>
+            <span class="stat-label">Registered Users</span>
+        </div>
+    </div>
+</section>
+
+<!-- User Management -->
+<section class="card" aria-labelledby="users-heading">
+    <div class="card-header">
+        <h2 class="card-title" id="users-heading">👥 User Management</h2>
+        <a href="{{ url_for('register') }}" class="btn btn-sm btn-outline">+ Add User</a>
+    </div>
+    <div class="table-wrap">
+        <table class="reports-table" id="usersTable">
+            <thead>
+                <tr>
+                    <th>#</th><th>Username</th><th>Full Name</th><th>Email</th>
+                    <th>Role</th><th>Registered</th><th>Last Login</th><th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr data-uid="{{ u.id }}">
+                    <td>{{ u.id }}</td>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{{ u.full_name or '—' }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <select class="form-input-sm role-select" data-uid="{{ u.id }}"
+                            {% if u.id == current_user.id %}disabled{% endif %}>
+                            <option value="resident" {% if u.role=='resident' %}selected{% endif %}>Resident</option>
+                            <option value="response_team" {% if u.role=='response_team' %}selected{% endif %}>Response Team</option>
+                            <option value="admin" {% if u.role=='admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                    </td>
+                    <td class="report-date">{{ u.created_at }}</td>
+                    <td class="report-date">{{ u.last_login or 'Never' }}</td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                        <button class="btn btn-sm btn-danger delete-user-btn" data-uid="{{ u.id }}"
+                            aria-label="Delete user {{ u.username }}">Delete</button>
+                        {% else %}
+                        <span class="badge badge-demo">You</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Notification Log -->
+<section class="card" aria-labelledby="notif-heading">
+    <div class="card-header">
+        <h2 class="card-title" id="notif-heading">📬 Notification Log (Last 50)</h2>
+    </div>
+    {% if notif_log %}
+    <div class="table-wrap">
+        <table class="reports-table">
+            <thead>
+                <tr><th>#</th><th>Channel</th><th>Status</th><th>Detail</th><th>Attempted At</th></tr>
+            </thead>
+            <tbody>
+                {% for n in notif_log %}
+                <tr>
+                    <td>{{ n.id }}</td>
+                    <td><span class="badge badge-{{ n.channel }}">{{ n.channel }}</span></td>
+                    <td><span class="status-pill status-{{ n.status }}">{{ n.status }}</span></td>
+                    <td><small>{{ (n.detail or '')[:60] }}</small></td>
+                    <td class="report-date">{{ n.attempted_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📬</div>
+        <p class="empty-title">No notification records yet</p>
+    </div>
+    {% endif %}
+</section>
+
+<!-- Quick Links -->
+<div class="dash-quick-links">
+    <a href="{{ url_for('compose_alert') }}" class="quick-link-card quick-link-report">
+        <span class="ql-icon">📢</span>
+        <span class="ql-label">Send Alert</span>
+        <span class="ql-sub">Broadcast to residents</span>
+    </a>
+    <a href="{{ url_for('alert_history') }}" class="quick-link-card quick-link-map">
+        <span class="ql-icon">📋</span>
+        <span class="ql-label">Alert History</span>
+        <span class="ql-sub">View past broadcasts</span>
+    </a>
+    <a href="{{ url_for('all_reports') }}" class="quick-link-card quick-link-all">
+        <span class="ql-icon">📊</span>
+        <span class="ql-label">All Reports</span>
+        <span class="ql-sub">Browse community reports</span>
+    </a>
+    <a href="{{ url_for('community_response') }}" class="quick-link-card quick-link-community">
+        <span class="ql-icon">🤝</span>
+        <span class="ql-label">Response Center</span>
+        <span class="ql-sub">Manage active incidents</span>
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.role-select').forEach(function(sel) {
+    sel.addEventListener('change', async function() {
+        var uid = this.dataset.uid;
+        var fd = new FormData();
+        fd.append('role', this.value);
+        try {
+            var r = await fetch('/admin/users/' + uid + '/role', { method: 'POST', body: fd });
+            var res = await r.json();
+            if (res.success) showToast('Role updated.', 'success');
+            else showToast(res.error || 'Failed.', 'error');
+        } catch(e) { showToast('Network error.', 'error'); }
+    });
+});
+
+document.querySelectorAll('.delete-user-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+        if (!confirm('Delete this user? This cannot be undone.')) return;
+        var uid = this.dataset.uid;
+        try {
+            var r = await fetch('/admin/users/' + uid + '/delete', { method: 'POST' });
+            var res = await r.json();
+            if (res.success) {
+                this.closest('tr').remove();
+                showToast('User deleted.', 'success');
+            } else showToast(res.error || 'Failed.', 'error');
+        } catch(e) { showToast('Network error.', 'error'); }
+    });
+});
+</script>
+{% endblock %}
